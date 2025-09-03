@@ -1,0 +1,40 @@
+# Development override configuration
+# This file is automatically ignored by .gitignore
+# Use it to override docker-compose.yml for development
+
+services:
+  # Development overrides for backend
+  backend:
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+      - ./backend/tsconfig.json:/app/tsconfig.json
+    command: ["npm", "run", "dev"]
+
+  # Development overrides for frontend
+  frontend:
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev"]
+
+  # Development overrides for bot
+  bot:
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./bot:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev"]
+
+  # MongoDB with development settings
+  mongodb:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dev_admin
+      MONGO_INITDB_ROOT_PASSWORD: dev_password
+    ports:
+      - "27018:27017"  # Different port for development

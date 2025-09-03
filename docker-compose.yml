@@ -1,0 +1,91 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7-jammy
+    container_name: dune-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: dune_awakening
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - dune-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dune-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/dune_awakening?authSource=admin
+      PORT: 4000
+      FRONTEND_URL: http://frontend:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - dune-network
+    volumes:
+      - ./backend/logs:/app/logs
+
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dune-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NUXT_PUBLIC_API_BASE: http://backend:4000/api
+      NUXT_PUBLIC_IMAGES_BASE: http://backend:4000/images
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - dune-network
+
+  # Discord Bot
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: dune-bot
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      API_BASE_URL: http://backend:4000
+      IMAGES_BASE_URL: http://backend:4000/images
+    depends_on:
+      - backend
+    networks:
+      - dune-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  dune-network:
+    driver: bridge
+

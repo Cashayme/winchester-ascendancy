@@ -1,0 +1,224 @@
+(function () {
+	if (document.readyState === 'interactive' || document.readyState === 'complete') {
+		dune_initEmbeds();
+	} else {
+		document.addEventListener('DOMContentLoaded', function (event) {
+			dune_initEmbeds();
+		});
+	}
+	function dune_initEmbeds() {
+		let currentUrl;
+		const config = {
+			scale: 0.85,
+			delay: 150,
+			anchorOnly: true,
+			alignLeft: false,
+			theme: 'slate',
+		};
+
+		if (window.gtTooltipConfig) {
+			if (window.gtTooltipConfig.hasOwnProperty('scale')) config.scale = window.gtTooltipConfig.scale;
+			if (window.gtTooltipConfig.hasOwnProperty('delay')) config.delay = window.gtTooltipConfig.delay;
+			if (window.gtTooltipConfig.hasOwnProperty('anchorOnly')) config.anchorOnly = window.gtTooltipConfig.anchorOnly;
+			if (window.gtTooltipConfig.hasOwnProperty('alignLeft')) config.alignLeft = window.gtTooltipConfig.alignLeft;
+			if (window.gtTooltipConfig.hasOwnProperty('theme')) config.theme = window.gtTooltipConfig.theme;
+		}
+
+		const dunePath = 'https://dune.gaming.tools';
+		const tooltipRef = document.createElement('iframe');
+		tooltipRef.setAttribute('id', 'gt-tooltip-embed');
+		tooltipRef.scrolling = 'no';
+		tooltipRef.sandbox = 'allow-scripts allow-popups allow-same-origin';
+		tooltipRef.style.opacity = 0;
+		tooltipRef.style.position = 'fixed';
+		tooltipRef.style.height = '1000px';
+		tooltipRef.style.zIndex = -100;
+		tooltipRef.style.pointerEvents = 'none';
+		tooltipRef.style.transform = 'scale(' + config.scale + ')';
+		tooltipRef.style.transformOrigin = 'top left';
+		tooltipRef.style.marginLeft = '15px';
+		tooltipRef.style.background = 'none transparent';
+		tooltipRef.style.overflow = 'hidden';
+		tooltipRef.style.colorScheme = 'light';
+		tooltipRef.style.border = 'none !important';
+
+		let tooltipEnabled = false;
+		async function tooltipPrefetch(data) {
+			const tooltipPath = data.url;
+			try {
+				document.body.removeChild(tooltipRef);
+			} catch (err) {}
+
+			document.body.appendChild(tooltipRef);
+			tooltipEnabled = true;
+
+			let embedUrl = new URL(tooltipPath);
+			currentUrl = tooltipPath;
+			tooltipRef.src = embedUrl.toString();
+
+			setTimeout(placeTooltip, 0);
+		}
+
+		window.addEventListener(
+			'message',
+			function (e) {
+				let message = e.data;
+				if (message && message.type === 'gt-embed-resize') {
+					tooltipRef.style.width = message.width + 0 + 'px';
+					tooltipRef.style.height = message.height + 0 + 'px';
+					tooltipRef.style.borderRadius = message.borderRadius;
+					if (tooltipEnabled) {
+						placeTooltip();
+						tooltipRef.style.opacity = 1;
+						tooltipRef.style.zIndex = 90000;
+					}
+				}
+			},
+			false,
+		);
+
+		function isValidNode(node) {
+			if(node instanceof HTMLElement) {
+				if (node.nodeName.toUpperCase() === 'A' || node.nodeName.toUpperCase() === 'AREA') return true;
+				if (node.hasAttribute('data-tooltip-href')) return true;
+			}
+			return false;
+		}
+
+		function find_anchor_item(node) {
+			while (node && !isValidNode(node)) node = node.parentNode;
+			if (node) {
+				
+				let dataUrl = node.getAttribute('data-tooltip-href') || node.href;
+				if (node.hasAttribute('data-no-tooltip')) return false;
+				let customText = null;
+				if (node.hasAttribute('data-custom-text')) {
+					customText = node.getAttribute('data-custom-text');
+				}
+				const validPrefixes = ["categoryMap","items","placeables","buildables","skills","npcs","contracts","story","research","landsraad"];
+				const validLanguages = ["en","de","es","fr","it","ja","ko","pl","pt-br","ru","tr","uk","zh-cn","zh-tw"];
+				const categories = ["benegesserit","mentat","trooper","swordmaster","planetologist","waterdiscipline_c","combat_c","construction_c","exploration_c","vehicles_c","uniques_c","utilities","fabricators","refineries","storage","choam","atreides","harkonnen","smuggler","choam2","choam3","decorations","extrasets","contract","garment","utilities","misc","weapons","schematics","vehicles","construction","customization","houses","tasks","trainer","vendor","landsraad","atre","default","trooper","swordmaster","planetologist","mentat","benegesserit","linked","funnel","hark","mainstory","factionquests","sidequests","contract"];
+
+				if (dataUrl && dataUrl.startsWith(dunePath)) {
+					const uri = new URL(dataUrl);
+					const path = uri.pathname;
+					const pathParts = path.split('/');
+					if (pathParts.length < 3) return false;
+					let firstPart = pathParts[1];
+					let key = pathParts[2];
+					let subKey = pathParts.length > 3 ? pathParts[3] : null;
+					let language = 'en';
+					for (const lang of validLanguages) {
+						if (firstPart === lang) {
+							language = lang;
+							firstPart = pathParts[2];
+							key = pathParts[3];
+							subKey =  pathParts.length > 4 ? pathParts[4] : null;
+							break;
+						}
+					}
+					if (language === 'en') language = '';
+					else language = '/' + language;
+					if (validPrefixes.includes(firstPart) && !categories.includes(key)) {
+						dataUrl = dunePath + language + '/tooltip' + '/' + firstPart + '/' + key;
+						if (subKey) {
+							dataUrl += '/' + subKey;
+						}
+						dataUrl += '?embed=true';
+
+						if (customText) {
+							dataUrl += '&custom=' + encodeURIComponent(customText) + '&d=' + encodeURIComponent(location.href.hostname);
+						}
+						if(config.theme) {
+							dataUrl += '&theme=' + config.theme;
+						}
+						return { url: dataUrl };
+					}
+				}
+			}
+
+			return false;
+		}
+
+		function trigger_prefetch(data) {
+			if (data.url) tooltipPrefetch(data);
+			else hideTooltip();
+		}
+
+		let mousemove_timeout;
+		let mouseX, mouseY;
+		let tooltipX, tooltipY;
+
+		const isMobile = 'ontouchstart' in document.documentElement && /mobi/i.test(navigator.userAgent);
+		function handle_mousemove(event) {
+			if (isMobile) return;
+
+			mouseX = event.clientX;
+			mouseY = event.clientY;
+
+			const data = find_anchor_item(event.target);
+			if (data.url) {
+				if (tooltipEnabled && tooltipRef.src !== data.url) {
+					tooltipRef.src = data.url;
+				}
+				clearTimeout(mousemove_timeout);
+				mousemove_timeout = setTimeout(() => {
+					if (!tooltipEnabled) trigger_prefetch(data);
+				}, config.delay);
+
+				placeTooltip();
+			} else {
+				clearTimeout(mousemove_timeout);
+				hideTooltip();
+			}
+		}
+
+		function hideTooltip() {
+			if (!tooltipEnabled) return;
+
+			// if (tooltipEnabled)
+			tooltipRef.removeAttribute('src');
+
+			tooltipEnabled = false;
+			tooltipRef.style.opacity = 0;
+			tooltipRef.style.zIndex = -100;
+
+			try {
+				document.body.removeChild(tooltipRef);
+			} catch (err) {}
+		}
+
+		function placeTooltip() {
+			if (!tooltipRef) return;
+
+			tooltipX = mouseX;
+			tooltipY = mouseY;
+
+			const tooltipHeight = tooltipRef.offsetHeight * config.scale;
+			const tooltipWidth = tooltipRef.offsetWidth * config.scale + 15;
+
+			if (config.alignLeft) tooltipX -= tooltipWidth;
+
+			if (tooltipY + tooltipHeight > window.innerHeight) {
+				tooltipY = window.innerHeight - tooltipHeight;
+			}
+
+			if (config.alignLeft) {
+				if (tooltipX < 0) {
+					tooltipX = -15;
+				}
+			} else {
+				if (tooltipX + tooltipWidth > window.innerWidth) {
+					tooltipX = window.innerWidth - tooltipWidth;
+				}
+			}
+
+			tooltipRef.style.top = tooltipY + 'px';
+			tooltipRef.style.left = tooltipX + 'px';
+		}
+
+		window.addEventListener('mousemove', handle_mousemove);
+		window.addEventListener('click', hideTooltip);
+		window.addEventListener('contextmenu', hideTooltip);
+	}
+})();

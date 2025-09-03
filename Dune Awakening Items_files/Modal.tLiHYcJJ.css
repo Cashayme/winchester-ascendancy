@@ -1,0 +1,1 @@
+dialog.svelte-11xrpr3::backdrop{background:#00000080}dialog[open].svelte-11xrpr3{animation:svelte-11xrpr3-zoom .3s cubic-bezier(.34,1.56,.64,1)}@keyframes svelte-11xrpr3-zoom{0%{transform:scale(.95)}to{transform:scale(1)}}dialog[open].svelte-11xrpr3::backdrop{animation:svelte-11xrpr3-fade .2s ease-out}@keyframes svelte-11xrpr3-fade{0%{opacity:0}to{opacity:1}}
