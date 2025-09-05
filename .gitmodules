@@ -1,11 +1,11 @@
 [submodule "frontend"]
 	path = frontend
-	url = https://github.com/your-username/winchester-frontend.git
+	url = https://github.com/Cashayme/winchester-frontend.git
 
 [submodule "backend"]
 	path = backend
-	url = https://github.com/your-username/winchester-backend.git
+	url = https://github.com/Cashayme/winchester-backend.git
 
 [submodule "bot"]
 	path = bot
-	url = https://github.com/your-username/winchester-bot.git
+	url = https://github.com/Cashayme/winchester-bot.git
